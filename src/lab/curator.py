@@ -5,9 +5,11 @@ Kiểm tra:    pytest tests/test_04_curator.py
 Chạy thật:   python -m lab.curator
 """
 import re
+import json
 from pathlib import Path
 
-from .tasks import eval_markers   # có sẵn: định danh của tác vụ đánh giá, tính lúc chạy
+from .model import make_model
+from .tasks import ROOT, eval_markers, list_tasks   # có sẵn: định danh của tác vụ đánh giá, tính lúc chạy
 
 # ---- CÓ SẴN, KHÔNG SỬA: kiểm tra và tách khối skill (phần dễ sai và liên quan bảo mật) ----------------
 SAFE_NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -68,7 +70,106 @@ def curate_skills(results_dir="results", source_condition="baseline", out_dir=No
     model mặc định: make_model() (lab.model).
     Trả về: danh sách đường dẫn SKILL.md đã ghi.
     """
-    raise NotImplementedError("TODO: cài đặt curate_skills (xem guides/pseudocode/04_curator.md)")
+    if out_dir is None:
+        out_dir = ROOT / "skills" / "auto"
+    else:
+        out_dir = Path(out_dir)
+
+    results_path = Path(results_dir) / source_condition
+    if not results_path.exists():
+        return []
+
+    runs = []
+    for run_json_path in results_path.glob("*/run.json"):
+        try:
+            r = json.loads(run_json_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        if r.get("role") != "learn":
+            continue
+
+        # Read trace.md
+        trace_path = run_json_path.parent / "trace.md"
+        trace = ""
+        if trace_path.exists():
+            trace = trace_path.read_text(encoding="utf-8")
+            # Take last ~6000 characters
+            if len(trace) > 6000:
+                trace = trace[-6000:]
+
+        failed_checks = []
+        for check in r.get("checks", []):
+            if not check.get("passed", True):
+                failed_checks.append({"name": check.get("name", ""), "detail": check.get("detail", "")})
+
+        if failed_checks:
+            runs.append({
+                "task": r.get("task", ""),
+                "failed": failed_checks,
+                "trace": trace
+            })
+
+    if not runs:
+        print("không có check thất bại ở tác vụ học")
+        return []
+
+    if model is None:
+        model = make_model()
+
+    # Build prompt
+    prompt = "Bạn viết SKILL cho một tác tử lập trình và phân tích dữ liệu.\n"
+    prompt += "Dưới đây là các check thất bại (tên và nhận xét của bot đánh giá) và vết của các lần chạy.\n"
+    prompt += f"Hãy tìm các lỗi QUY TRÌNH chung (không phải đáp án cụ thể) và viết tối đa {max_skills} skill ngắn\n"
+    prompt += "giúp tránh các lỗi đó trên tác vụ MỚI cùng loại.\n\n"
+    prompt += "Quy tắc:\n"
+    prompt += "- Skill phải tổng quát: không nêu id tác vụ, không nêu tên tệp riêng của một tác vụ, không nêu đáp án hay con số.\n"
+    prompt += "- Mỗi skill có frontmatter YAML gồm `name` (chữ thường, gạch ngang) và `description` (một câu: DÙNG KHI NÀO),\n"
+    prompt += "  sau đó tối đa 40 dòng chỉ dẫn mệnh lệnh (danh sách kiểm tra - checklist - hoạt động tốt).\n"
+    prompt += "- Định dạng đầu ra, đúng từng ký tự:\n"
+    prompt += "=== SKILL: <name> ===\n"
+    prompt += "---\n"
+    prompt += "name: <name>\n"
+    prompt += "description: <khi nào dùng>\n"
+    prompt += "---\n"
+    prompt += "<nội dung>\n"
+    prompt += "=== END ===\n\n"
+
+    for run in runs:
+        prompt += f"## Task: {run['task']}\n"
+        for fc in run["failed"]:
+            prompt += f"- Check failed: {fc['name']}\n"
+            prompt += f"  Detail: {fc['detail']}\n"
+        if run["trace"]:
+            prompt += f"Trace (last 6000 chars):\n{run['trace']}\n"
+        prompt += "\n"
+
+    # Invoke model
+    from langchain_core.messages import HumanMessage
+    response = model.invoke([HumanMessage(content=prompt)])
+    content = response.content if hasattr(response, 'content') else str(response)
+    # Handle both string and list of content objects (e.g., from google_genai)
+    if isinstance(content, list):
+        reply = "".join(c.get("text", "") for c in content if isinstance(c, dict))
+    else:
+        reply = str(content)
+
+    # Parse and validate skills
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for name, text in parse_skill_blocks(reply):
+        if len(written) >= max_skills:
+            break
+        problems = validate_skill(text, expected_name=name)
+        if problems:
+            continue
+        skill_dir = out_dir / name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text(text, encoding="utf-8")
+        written.append(skill_file)
+
+    return written
 
 
 if __name__ == "__main__":
