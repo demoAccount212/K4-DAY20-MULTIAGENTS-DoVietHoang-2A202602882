@@ -2,9 +2,9 @@
 
 ## 1. Thông tin nhóm và cấu hình
 
-| Họ tên | Mã sinh viên | Phần đóng góp |
-|---|---|---|
-| | | |
+| Họ tên        | Mã sinh viên | Phần đóng góp |
+|---------------|--------------|---------------|
+| Đỗ Việt Hoàng | 2A202602882       | *             |
 
 - Nhà cung cấp và mô hình (`LAB_MODEL`, không ghi khóa API), nhiệt độ (`LAB_TEMPERATURE`), `recursion_limit`: google_genai:gemini-3.1-flash-lite, temp=0, recursion_limit=60
 - Phiên bản Deep Agents (`pip show deepagents`), hệ điều hành, chạy trực tiếp hay trong Docker: deepagents 0.1.0, Windows 11 (Git Bash), chạy trực tiếp
