@@ -1,0 +1,72 @@
+{
+  "task": "data-learn",
+  "condition": "subagents",
+  "role": "learn",
+  "error": null,
+  "timestamp": "2026-10-06T10:33:39.407568+00:00",
+  "skills_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "seconds": 146.2,
+  "tokens": {
+    "input": 461508,
+    "output": 4994,
+    "total": 466502
+  },
+  "tool_calls": 4,
+  "subagent_calls": 1,
+  "skills_read": 0,
+  "skills_modified": false,
+  "final_message": [
+    {
+      "type": "text",
+      "text": "The sales data in `workspace/sales.csv` was cleaned and analyzed as follows:\n\n1.  **Data Cleaning**:\n    *   **Duplicates**: Removed 7 duplicate rows based on `order_id`, keeping only the first occurrence.\n    *   **Missing Amounts**: Identified 8 distinct orders with missing amounts (represented as -999). These were excluded from revenue calculations.\n    *   **Normalization**: Normalized the `region` column by trimming whitespace and standardizing capitalization (e.g., \"north\", \"NORTH\" -> \"North\").\n    *   **Date Parsing**: Standardized the `date` column by parsing `YYYY-MM-DD`, `DD/MM/YYYY`, and ISO-8601 formats into a consistent datetime format.\n\n2.  **Results**:\n    *   Calculated the required metrics and saved them to `workspace/answer.json`.\n\nFiles created/changed: `workspace/answer.json`.",
+      "extras": {
+        "signature": "EnMKcQFpFH0T4TrEgZ+wMIDw7EokPM/VjNL3vMUgHlrwVrjHgneknJNCwHhipo+xcnInnUNH7XQtvscEGg5FGCJUGkrYJPog4QI0aGIr2Id7GfW1lYuX452n37f7qgdWkFRULdDajBz6WodI78fgDyDpKDCQ"
+      }
+    }
+  ],
+  "score": 0.375,
+  "passed": 3,
+  "total": 8,
+  "checks": [
+    {
+      "name": "north_q1_revenue",
+      "passed": false,
+      "detail": "north_q1_revenue: wrong value (got 1936.0)"
+    },
+    {
+      "name": "north_q1_orders",
+      "passed": false,
+      "detail": "north_q1_orders: wrong value (got 7)"
+    },
+    {
+      "name": "top_region",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "missing_amount_orders",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "duplicate_rows_removed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "rule_money_in_cents",
+      "passed": false,
+      "detail": "RULE: money values in answer.json are integer cents (1606.67 USD is written 160667)."
+    },
+    {
+      "name": "rule_meta_block",
+      "passed": false,
+      "detail": "RULE: answer.json has an object `meta` = {\"source\": <input file name>, \"rows_in\": <number of data rows in the input file, duplicates included>, \"rows_used\": <number of distinct orders with a known amount>}."
+    },
+    {
+      "name": "rule_clean_csv",
+      "passed": false,
+      "detail": "RULE: write workspace/clean.csv with the header order_id,timestamp_utc,region,amount_cents; one row per distinct order with a known amount; timestamp_utc as YYYY-MM-DDTHH:MM:SSZ (UTC); region in canonical spelling (North, South, East, West); amount in integer cents."
+    }
+  ]
+}
